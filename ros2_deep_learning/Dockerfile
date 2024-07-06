@@ -5,7 +5,7 @@ SHELL ["/bin/bash", "-c"]
 WORKDIR /tmp
 
 # Install opencv
-ARG OPENCV_URL='xxxx' \
+ARG OPENCV_URL='https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3UvcyFBbUFVUGRuVkI4b2RoRUhKazZobm9MUFQ0c05aP2U9eEtzTnB5/root/content' \
     OPENCV_FILE=OpenCV-4.7.0-x86_64.tar.gz
 RUN apt-get purge -y '.*opencv.*' || echo "previous OpenCV installation not found" && \
     apt-get update && \
@@ -25,12 +25,11 @@ RUN mkdir opencv && \
     ln -s /usr/include/opencv4 /usr/local/include/opencv4 && \
     ln -s /usr/lib/python3.8/site-packages/cv2 /usr/local/lib/python3.8/dist-packages/cv2 && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /var/lib/apt/lists/*
 RUN rm -rf opencv
 RUN python3 -c "import cv2; print('OpenCV version:', str(cv2.__version__)); print(cv2.getBuildInformation())"
 
 # Build ros2 humble
-ARG ROS_PKG=desktop
 ENV ROS_DISTRO=humble \
     ROS_ROOT=/opt/ros/${ROS_DISTRO}
 
@@ -78,7 +77,7 @@ RUN pip3 install --upgrade --no-cache-dir \
 
 RUN mkdir -p ${ROS_ROOT}/src && \
     cd ${ROS_ROOT} && \
-    rosinstall_generator --deps --rosdistro ${ROS_DISTRO} ${ROS_PKG} \
+    rosinstall_generator --deps --rosdistro ${ROS_DISTRO} desktop perception navigation2 \
         > ros2.${ROS_DISTRO}.rosinstall && \
     while ! vcs import src < ros2.${ROS_DISTRO}.rosinstall; do :; done && \
     rm ${ROS_ROOT}/*.rosinstall
@@ -103,16 +102,19 @@ RUN rm -rf ${ROS_ROOT}/src && \
 
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
+# Entrypoint
+COPY ./ros_entrypoint.sh /ros_entrypoint.sh
+ENTRYPOINT ["/ros_entrypoint.sh"]
+
 # Install tensorrt
 ARG TENSORRT_URL='https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/8.6.1/tars/TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-12.0.tar.gz' \
     TENSORRT_FILE=TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-12.0.tar.gz
 RUN wget --quiet --show-progress --progress=bar:force:noscroll ${TENSORRT_URL} -O ${TENSORRT_FILE} && \
-    tar -xzvf ${TENSORRT_FILE} -C -C /usr/src && \
-    mv /usr/src/TensorRT-* /usr/src/tensorrt && \
-    cp -r /usr/src/tensorrt/lib/* /usr/lib/x86_64-linux-gnu/ && \
-    cp -r /usr/src/tensorrt/include/* /usr/include/x86_64-linux-gnu/ && \
-    pip3 install --no-cache-dir /usr/src/tensorrt/python/tensorrt-*-cp38-*.whl && \
+    tar -xzvf ${TENSORRT_FILE} -C /opt && \
+    mv /opt/TensorRT-* /opt/tensorrt && \
     rm ${TENSORRT_FILE}
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/tensorrt/lib
+RUN pip3 install --no-cache-dir /opt/tensorrt/python/tensorrt-*-cp38-*.whl
 
 # Install tensorflow
 RUN pip3 install --no-cache-dir tensorflow[and-cuda]==1.15.5
@@ -122,8 +124,5 @@ RUN python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('
 RUN pip3 install --no-cache-dir torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
 RUN python3 -c 'import torch; print(f"PyTorch version: {torch.__version__}"); print(f"CUDA available: {torch.cuda.is_available()}"); print(f"cuDNN version: {torch.backends.cudnn.version()}"); print(torch.__config__.show());'
 
-# Entrypoint
-COPY ./ros_entrypoint.sh /ros_entrypoint.sh
-ENTRYPOINT ["/ros_entrypoint.sh"]
 CMD ["bash"]
 WORKDIR /

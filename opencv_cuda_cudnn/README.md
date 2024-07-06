@@ -12,12 +12,12 @@
 
     ```bash
     cd path/to/Dockerfile
-    docker build -t rdl_opencv .
+    docker build -t opencv_cuda .
     ```
     `Note: 'docker build' command might be deprecated in the future docker releases.`
 - Run docker image and get container id.
     ```bash
-    docker run --rm -it --gpus all rdl_opencv
+    docker run --rm -it --gpus all opencv_cuda
     ```
 - Run below command in new terminal to export binary file.
     ```

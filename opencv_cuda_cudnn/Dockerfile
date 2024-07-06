@@ -114,19 +114,14 @@ RUN mkdir -p ${OPENCV_ROOT}/build && \
 RUN cd ${OPENCV_ROOT}/build && \
     make install && \
     make package && \
-    make uninstall
-RUN tar -cvzf /OpenCV-${OPENCV_VERSION}-x86_64.tar.gz ${OPENCV_ROOT}/build/*.deb
+    make uninstall && \
+    dpkg -i *.deb
+RUN cd ${OPENCV_ROOT}/build && \
+    tar -czvf OpenCV-${OPENCV_VERSION}-x86_64.tar.gz *.deb && \
+    mv OpenCV-${OPENCV_VERSION}-x86_64.tar.gz /tmp
 
 # Clean
-RUN rm -rf ${OPENCV_ROOT}
-
-# Install
-RUN mkdir opencv && \
-    cd opencv && \
-    tar -xvzf /OpenCV-${OPENCV_VERSION}-x86_64.tar.gz && \
-    dpkg -i *.deb && \
-    cd ../ && \
-    rm -rf opencv
+RUN rm -rf ${OPENCV_ROOT}  
 
 # Verify
 ENV PYTHONPATH=/usr/lib/python3.8/site-packages:/usr/local/lib/python3.8/site-packages
