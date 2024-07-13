@@ -4,7 +4,7 @@
 
 - ARGs
     ```
-    BASE_IMAGE = nvcr.io/nvidia/cuda:12.0.1-cudnn8-devel-ubuntu20.04
+    BASE_IMAGE = nvcr.io/nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
     OPENCV_VERSION = 4.7.0
     CUDA_ARCH_BIN = 7.5 for NVIDIA GTX 1650 (Notebook)
     ```

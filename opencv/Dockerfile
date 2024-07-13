@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvidia/cuda:12.1.1-cudnn8-devel-ubuntu20.04
+ARG BASE_IMAGE=nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
 FROM ${BASE_IMAGE}
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
@@ -124,7 +124,7 @@ RUN cd ${OPENCV_ROOT}/build && \
 RUN rm -rf ${OPENCV_ROOT}  
 
 # Verify
-ENV PYTHONPATH=/usr/lib/python3.8/site-packages:/usr/local/lib/python3.8/site-packages
+ENV PYTHONPATH=${PYTHONPATH}:/usr/lib/python3.8/site-packages
 RUN python3 -c "import cv2; print('OpenCV version:', str(cv2.__version__)); print(cv2.getBuildInformation())"
 
 CMD ["bash"]
