@@ -1,32 +1,31 @@
-ARG BASE_IMAGE=nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+ARG BASE_IMAGE=ubuntu:22.04
 FROM ${BASE_IMAGE}
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 WORKDIR /tmp
 
-## Install opencv
-ARG OPENCV_URL='https://www.dropbox.com/scl/fi/w4pi35bi6f1npq84y9bks/OpenCV-4.7.0-ubuntu22.04cuda12.1.1cudnn8.9.0-x86_64.tar.gz?rlkey=gh1va636nyh1yk84bu6ae69j7&st=lys6sy76&dl=1' \
-    OPENCV_FILE=OpenCV-4.7.0-ubuntu22.04cuda12.1.1cudnn8.9.0-x86_64.tar.gz
-RUN apt-get purge -y '.*opencv.*' || echo "previous OpenCV installation not found" && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        wget \
-        python3-numpy && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean
-RUN mkdir opencv && \
-    cd opencv && \
-    wget --quiet --show-progress --progress=bar:force:noscroll ${OPENCV_URL} -O ${OPENCV_FILE} && \
-    tar -xzvf ${OPENCV_FILE} && \
-    dpkg -i --force-depends *.deb && \
-    apt-get update && \
-    apt-get install -y -f --no-install-recommends && \
-    dpkg -i *.deb && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-RUN rm -rf opencv
-# ENV PYTHONPATH=${PYTHONPATH}:/usr/lib/python3.8/site-packages
-RUN python3 -c "import cv2; print('OpenCV version:', str(cv2.__version__)); print(cv2.getBuildInformation())"
+# ## Install opencv
+# ARG OPENCV_URL='https://www.dropbox.com/scl/fi/w4pi35bi6f1npq84y9bks/OpenCV-4.7.0-ubuntu22.04cuda12.1.1cudnn8.9.0-x86_64.tar.gz?rlkey=gh1va636nyh1yk84bu6ae69j7&st=lys6sy76&dl=1' \
+#     OPENCV_FILE=OpenCV-4.7.0-ubuntu22.04cuda12.1.1cudnn8.9.0-x86_64.tar.gz
+# RUN apt-get purge -y '.*opencv.*' || echo "previous OpenCV installation not found" && \
+#     apt-get update && \
+#     apt-get install -y --no-install-recommends \
+#         wget \
+#         python3-numpy && \
+#     rm -rf /var/lib/apt/lists/* && \
+#     apt-get clean
+# RUN mkdir opencv && \
+#     cd opencv && \
+#     wget --quiet --show-progress --progress=bar:force:noscroll ${OPENCV_URL} -O ${OPENCV_FILE} && \
+#     tar -xzvf ${OPENCV_FILE} && \
+#     dpkg -i --force-depends *.deb && \
+#     apt-get update && \
+#     apt-get install -y -f --no-install-recommends && \
+#     dpkg -i *.deb && \
+#     apt-get clean && \
+#     rm -rf /var/lib/apt/lists/*
+# RUN rm -rf opencv
+# RUN python3 -c "import cv2; print('OpenCV version:', str(cv2.__version__)); print(cv2.getBuildInformation())"
 
 ## Install ros2 humble
 ENV ROS_DISTRO=humble \
@@ -81,19 +80,17 @@ RUN mkdir -p ${ROS_ROOT} && \
     rm ${ROS_FILE}
 
 RUN apt-get update && \
+    apt-get upgrade && \
     rosdep init && \
     rosdep update && \
     rosdep install -y -q \
         --ignore-src \
         --from-paths ${ROS_ROOT}/ros2-linux/share \
-        --skip-keys "libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python-opencv python3-opencv fastcdr rti-connext-dds-6.0.1 urdfdom_headers" && \
+        --skip-keys "cyclonedds fastcdr fastrtps rti-connext-dds-6.0.1 urdfdom_headers" && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get clean
 
-# # https://github.com/gazebosim/gz-rendering/issues/662
-# ENV LIBGL_ALWAYS_SOFTWARE=1
-
-### Build ros2 humble
+# ## Build ros2 humble
 # RUN mkdir -p ${ROS_ROOT}/src && \
 #     cd ${ROS_ROOT} && \
 #     rosinstall_generator --deps --rosdistro ${ROS_DISTRO} desktop perception navigation2 \
@@ -108,32 +105,16 @@ RUN apt-get update && \
 #     rm -rf ${ROS_ROOT}/logs && \
 #     rm -rf ${ROS_ROOT}/build
 
-# ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+RUN echo 'source ${ROS_ROOT}/ros2-linux/setup.bash' >> /root/.bashrc
 
-## Entrypoint
-COPY ./ros_entrypoint.sh /ros_entrypoint.sh
-ENTRYPOINT ["/ros_entrypoint.sh"]
-
-## Install tensorrt
-ARG TENSORRT_URL='https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.1/local_repo/nv-tensorrt-local-repo-ubuntu2204-10.0.1-cuda-12.4_1.0-1_amd64.deb' \
-    TENSORRT_FILE=nv-tensorrt-local-repo-ubuntu2204-10.0.1-cuda-12.4_1.0-1_amd64.deb
-RUN wget --quiet --show-progress --progress=bar:force:noscroll ${TENSORRT_URL} -O ${TENSORRT_FILE} && \
-    dpkg -i ${TENSORRT_FILE} && \
-    sudo cp /var/nv-tensorrt-local-repo-*/*-keyring.gpg /usr/share/keyrings/ && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends tensorrt && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean && \
-    apt-get purge -y nv-tensorrt-local-repo-* && \
-    rm ${TENSORRT_FILE}
-
-## Install tensorflow
-RUN pip3 install --no-cache-dir tensorflow[and-cuda]==2.12.0
-RUN python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
-
-## Install pytorch
-RUN pip install torch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 --index-url https://download.pytorch.org/whl/cu121
+## Install tensorrt and pytorch
+RUN python3 -m pip install --no-cache-dir torch torchvision torch-tensorrt tensorrt==10.0.1 tensorrt-cu12==10.0.1 --extra-index-url https://download.pytorch.org/whl/cu121
+RUN python3 -c "import tensorrt; print('TensorRT version:', str(tensorrt.__version__))"
 RUN python3 -c 'import torch; print(f"PyTorch version: {torch.__version__}"); print(f"CUDA available: {torch.cuda.is_available()}"); print(f"cuDNN version: {torch.backends.cudnn.version()}"); print(torch.__config__.show());'
 
+# ## Install tensorflow
+# RUN pip3 install --no-cache-dir tensorflow[and-cuda]
+# RUN python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+
 CMD ["bash"]
-WORKDIR /
+WORKDIR /workspace
