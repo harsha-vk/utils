@@ -13,3 +13,9 @@
 - https://docs.nvidia.com/deeplearning/frameworks/tensorflow-release-notes/rel-23-04.html#rel-23-04
 - https://www.tensorflow.org/install
 - https://pytorch.org/get-started/previous-versions/
+- https://onnxruntime.ai/docs/execution-providers/
+
+export PATH=/usr/local/cuda-12.1/bin:$PATH
+sudo nano /etc/ld.so.conf
+/usr/local/cuda-12.1/lib64
+sudo ldconfig

@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=nvidia/cuda:12.1.1-devel-ubuntu22.04
 FROM ${BASE_IMAGE}
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
@@ -51,44 +51,29 @@ RUN apt-get update && \
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3-flake8-docstrings \
-        python3-pip \
-        python3-pytest-cov \
-        ros-dev-tools \
-        python3-rosinstall-generator \
-        python2- \
-        python3-flake8-blind-except \
-        python3-flake8-builtins \
-        python3-flake8-class-newline \
-        python3-flake8-comprehensions \
-        python3-flake8-deprecated \
-        python3-flake8-import-order \
-        python3-flake8-quotes \
-        python3-pytest-repeat \
-        python3-pytest-rerunfailures && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean
+RUN apt-get install -y --no-install-recommends ros-humble-desktop-full ros-dev-tools python2-
 
-ARG ROS_URL='https://github.com/ros2/ros2/releases/download/release-humble-20240523/ros2-humble-20240523-linux-jammy-amd64.tar.bz2' \
-    ROS_FILE=ros2-humble-20240523-linux-jammy-amd64.tar.bz2
-RUN mkdir -p ${ROS_ROOT} && \
-    cd ${ROS_ROOT} && \
-    wget --quiet --show-progress --progress=bar:force:noscroll ${ROS_URL} -O ${ROS_FILE} && \
-    tar -xf ${ROS_FILE} && \
-    rm ${ROS_FILE}
-
-RUN apt-get update && \
-    apt-get upgrade && \
-    rosdep init && \
-    rosdep update && \
-    rosdep install -y -q \
-        --ignore-src \
-        --from-paths ${ROS_ROOT}/ros2-linux/share \
-        --skip-keys "cyclonedds fastcdr fastrtps rti-connext-dds-6.0.1 urdfdom_headers" && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get clean
+# ARG ROS_URL='https://github.com/ros2/ros2/releases/download/release-humble-20240523/ros2-humble-20240523-linux-jammy-amd64.tar.bz2' \
+#     ROS_FILE=ros2-humble-20240523-linux-jammy-amd64.tar.bz2
+# RUN mkdir -p ${ROS_ROOT} && \
+#     cd ${ROS_ROOT} && \
+#     wget --quiet --show-progress --progress=bar:force:noscroll ${ROS_URL} -O ${ROS_FILE} && \
+#     tar -xf ${ROS_FILE} && \
+#     rm ${ROS_FILE}
+# RUN apt-get update && \
+#     apt-get upgrade && \
+#     apt-get install -y -no-install-recommends \
+#         python3-rosdep \
+#         ros-dev-tools
+#         python2- && \
+#     rosdep init && \
+#     rosdep update && \
+#     rosdep install -y -q \
+#         --ignore-src \
+#         --from-paths ${ROS_ROOT}/ros2-linux/share \
+#         --skip-keys "cyclonedds fastcdr fastrtps rti-connext-dds-6.0.1 urdfdom_headers" && \
+#     rm -rf /var/lib/apt/lists/* && \
+#     apt-get clean
 
 # ## Build ros2 humble
 # RUN mkdir -p ${ROS_ROOT}/src && \
@@ -97,20 +82,30 @@ RUN apt-get update && \
 #         > ros2.${ROS_DISTRO}.rosinstall && \
 #     while ! vcs import src < ros2.${ROS_DISTRO}.rosinstall; do :; done && \
 #     rm ${ROS_ROOT}/*.rosinstall
-
 # RUN cd ${ROS_ROOT} && \
 #     colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release
-
 # RUN rm -rf ${ROS_ROOT}/src && \
 #     rm -rf ${ROS_ROOT}/logs && \
 #     rm -rf ${ROS_ROOT}/build
 
-RUN echo 'source ${ROS_ROOT}/ros2-linux/setup.bash' >> /root/.bashrc
+RUN echo 'source ${ROS_ROOT}/setup.bash' >> /root/.bashrc
 
 ## Install tensorrt and pytorch
-RUN python3 -m pip install --no-cache-dir torch torchvision torch-tensorrt tensorrt==10.0.1 tensorrt-cu12==10.0.1 --extra-index-url https://download.pytorch.org/whl/cu121
+RUN python3 -m pip install --no-cache-dir \
+                            'numpy<2.0.0' \
+                            torch==2.3.1 \
+                            torchvision==0.18.1 \
+                            torch-tensorrt==2.3.0 \
+                            tensorrt==10.0.1 \
+                            tensorrt-cu12==10.0.1 \
+                            --extra-index-url https://download.pytorch.org/whl/cu121
 RUN python3 -c "import tensorrt; print('TensorRT version:', str(tensorrt.__version__))"
 RUN python3 -c 'import torch; print(f"PyTorch version: {torch.__version__}"); print(f"CUDA available: {torch.cuda.is_available()}"); print(f"cuDNN version: {torch.backends.cudnn.version()}"); print(torch.__config__.show());'
+
+## Install onnxruntime (cuda 12.x, cudnn 8.x)
+RUN python3 -m pip install --no-cache-dir \
+                            onnxruntime-gpu==1.18.0 \
+                            --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
 
 # ## Install tensorflow
 # RUN pip3 install --no-cache-dir tensorflow[and-cuda]
